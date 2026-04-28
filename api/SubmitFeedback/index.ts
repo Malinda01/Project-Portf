@@ -1,12 +1,16 @@
-import { AzureFunction, Context, HttpRequest } from "@azure/functions"
-import { container } from "../shared/db";
+import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { container } from "../shared/api";
 
-const httpTrigger: AzureFunction = async function (context: Context, req: HttpRequest): Promise<void> {
-    const { message } = req.body;
+export async function SubmitFeedback(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    // Parse the JSON body from the request stream
+    const body: any = await request.json();
+    const message = body?.message;
 
     if (!message) {
-        context.res = { status: 400, body: "Please pass a message" };
-        return;
+        return { 
+            status: 400, 
+            body: "Please pass a message" 
+        };
     }
 
     const newItem = {
@@ -14,12 +18,17 @@ const httpTrigger: AzureFunction = async function (context: Context, req: HttpRe
         timestamp: new Date().toISOString(),
     };
 
+    // Save the item to your Cosmos DB container
     await container.items.create(newItem);
 
-    context.res = {
+    return {
         status: 201,
-        body: { message: "Feedback submitted successfully" }
+        jsonBody: { message: "Feedback submitted successfully" }
     };
 };
 
-export default httpTrigger;
+app.http('SubmitFeedback', {
+    methods: ['POST'],
+    authLevel: 'anonymous',
+    handler: SubmitFeedback
+});

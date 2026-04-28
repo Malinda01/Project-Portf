@@ -1,23 +1,26 @@
-import { AzureFunction, Context, HttpRequest } from "@azure/functions"
-import { container } from "../shared/db";
+import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { container } from "../shared/api";
 
-const httpTrigger: AzureFunction = async function (context: Context, req: HttpRequest): Promise<void> {
-    // For your 'Predefined Password' requirement:
-    const authHeader = req.headers.authorization;
+export async function GetFeedback(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    const authHeader = request.headers.get('authorization');
     
-    // Simple check (In production, use a JWT or Azure AD)
+    // Validate the bearer token
     if (authHeader !== "Bearer password123") {
-        context.res = { status: 401, body: "Unauthorized" };
-        return;
+        return { status: 401, body: "Unauthorized" };
     }
 
     const { resources } = await container.items
         .query("SELECT * FROM c ORDER BY c.timestamp DESC")
         .fetchAll();
 
-    context.res = {
-        body: resources
+    return {
+        status: 200,
+        jsonBody: resources
     };
 };
 
-export default httpTrigger;
+app.http('GetFeedback', {
+    methods: ['GET'],
+    authLevel: 'anonymous',
+    handler: GetFeedback
+});
